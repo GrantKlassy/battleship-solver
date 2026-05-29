@@ -1,0 +1,15 @@
+[package]
+name = "battleship-solver"
+version = "0.1.0"
+edition = "2021"
+description = "A probability-based Battleship solver with an egui interface and a parallel hybrid (exact + Monte-Carlo) engine"
+
+[dependencies]
+eframe = "0.27"
+rayon = "1"
+rand = "0.8"
+
+[profile.release]
+opt-level = 3
+codegen-units = 1
+lto = "thin"
