@@ -747,7 +747,7 @@ impl App {
             .floor()
             .clamp(16.0, 64.0);
         let size = egui::vec2(cell * cols as f32, cell * rows as f32);
-        let (resp, painter) = ui.allocate_painter(size, egui::Sense::click());
+        let (mut resp, painter) = ui.allocate_painter(size, egui::Sense::click());
         let origin = resp.rect.min;
 
         // Normalise the heatmap by its peak for contrast.
@@ -801,6 +801,14 @@ impl App {
             }
         };
 
+        // Hover any cell during play to inspect the raw configuration count
+        // behind its probability ("X of N configs place a ship here").
+        if self.mode == Mode::Play {
+            if let Some(hidx) = resp.hover_pos().and_then(to_cell) {
+                resp = resp.on_hover_ui_at_pointer(|ui| self.cell_tooltip(ui, hidx));
+            }
+        }
+
         if resp.clicked() {
             if let Some(idx) = resp.interact_pointer_pos().and_then(to_cell) {
                 self.on_primary(idx);
@@ -828,7 +836,7 @@ impl App {
         }
         match self.states[idx] {
             CellState::Miss => (MISS_COLOR, Some(("•".into(), egui::Color32::from_gray(180)))),
-            CellState::Hit => (HIT_COLOR, Some(("✕".into(), egui::Color32::WHITE))),
+            CellState::Hit => (HIT_COLOR, Some(("🚢".into(), egui::Color32::WHITE))),
             CellState::Sunk => (SUNK_COLOR, Some(("✕".into(), egui::Color32::from_gray(220)))),
             CellState::Unknown => {
                 let p = self.solve.as_ref().map(|s| s.prob[idx]).unwrap_or(0.0);
@@ -837,7 +845,14 @@ impl App {
                 }
                 let t = (p / max_p).clamp(0.0, 1.0);
                 let fill = heat(t);
-                let label = if p > 0.0 {
+                // A cell occupied in *every* consistent configuration is a sure hit.
+                let certain = self
+                    .solve
+                    .as_ref()
+                    .map_or(false, |s| s.configs > 0 && s.counts[idx] == s.configs);
+                let label = if certain {
+                    Some(("💯".to_string(), egui::Color32::WHITE))
+                } else if p > 0.0 {
                     let txt_color = if t > 0.55 {
                         egui::Color32::from_gray(20)
                     } else {
@@ -849,6 +864,49 @@ impl App {
                 };
                 (fill, label)
             }
+        }
+    }
+
+    /// Tooltip shown when hovering a cell during play: the raw configuration
+    /// count behind the cell's score, or what a decided cell means.
+    fn cell_tooltip(&self, ui: &mut egui::Ui, idx: usize) {
+        let (x, y) = self.cfg.xy(idx);
+        ui.strong(format!("{} ({}, {})", coord_name(x, y), x, y));
+        match self.states[idx] {
+            CellState::Miss => {
+                ui.label("Miss — no ship here.");
+            }
+            CellState::Hit => {
+                ui.label("Hit — ship not yet sunk. 🚢");
+            }
+            CellState::Sunk => {
+                ui.label("Part of a sunk ship.");
+            }
+            CellState::Unknown => match self.solve.as_ref() {
+                Some(s) if s.configs > 0 => {
+                    let word = match s.method {
+                        Method::Exact => "configurations",
+                        Method::MonteCarlo => "samples",
+                        Method::Trivial => "simulations",
+                    };
+                    ui.label(format!(
+                        "{} of {} {} place a ship here",
+                        group_digits(s.counts[idx]),
+                        group_digits(s.configs),
+                        word
+                    ));
+                    ui.strong(format!("P(ship) = {:.1}%", s.prob[idx] * 100.0));
+                    if s.counts[idx] == s.configs {
+                        ui.colored_label(
+                            egui::Color32::from_rgb(240, 200, 60),
+                            "Guaranteed hit 💯",
+                        );
+                    }
+                }
+                _ => {
+                    ui.label("No probability for this cell yet.");
+                }
+            },
         }
     }
 }

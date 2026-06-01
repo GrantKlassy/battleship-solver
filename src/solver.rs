@@ -58,6 +58,10 @@ impl Method {
 pub struct SolveResult {
     /// Per-cell probability of containing a ship (0 for non-unknown cells).
     pub prob: Vec<f64>,
+    /// Per-cell occupancy: how many of the `configs` placements cover this cell.
+    /// For unknown cells `prob[c] == counts[c] / configs`; a cell with
+    /// `counts[c] == configs` is a guaranteed hit.
+    pub counts: Vec<u64>,
     /// Configs enumerated (exact) or samples accepted (Monte-Carlo).
     pub configs: u64,
     pub method: Method,
@@ -85,6 +89,7 @@ pub fn solve(cfg: &GameConfig, states: &[CellState], remaining: &[usize]) -> Sol
     if remaining.is_empty() {
         return SolveResult {
             prob,
+            counts: vec![0; n],
             configs: 0,
             method: Method::Trivial,
             best_cell: None,
@@ -136,6 +141,7 @@ pub fn solve(cfg: &GameConfig, states: &[CellState], remaining: &[usize]) -> Sol
     if placements.iter().any(|p| p.is_empty()) {
         return SolveResult {
             prob,
+            counts: vec![0; n],
             configs: 0,
             method: Method::Trivial,
             best_cell: None,
@@ -186,6 +192,7 @@ pub fn solve(cfg: &GameConfig, states: &[CellState], remaining: &[usize]) -> Sol
 
     SolveResult {
         prob,
+        counts,
         configs: total,
         method,
         best_cell,
@@ -508,6 +515,31 @@ mod tests {
         let res = solve(&cfg, &states, &cfg.ships);
         assert_eq!(res.prob[m], 0.0);
         assert_ne!(res.best_cell, Some(m));
+    }
+
+    #[test]
+    fn certain_cell_is_covered_by_every_config() {
+        // A lone hit with only one open neighbour forces the remaining length-2
+        // ship through that neighbour, so it appears in *every* configuration —
+        // counts[forced] == configs, a guaranteed hit (the 💯 case in the UI).
+        let cfg = GameConfig {
+            width: 5,
+            height: 5,
+            ships: vec![2],
+            gap_rule: true,
+        };
+        let mut states = vec![CellState::Unknown; cfg.cells()];
+        states[cfg.idx(0, 0)] = CellState::Hit;
+        states[cfg.idx(1, 0)] = CellState::Miss; // block the horizontal extension
+        let res = solve(&cfg, &states, &vec![2]);
+        let forced = cfg.idx(0, 1);
+        assert!(res.configs > 0, "evidence must be satisfiable");
+        assert_eq!(
+            res.counts[forced], res.configs,
+            "the forced cell must be occupied in every configuration"
+        );
+        assert_eq!(res.best_cell, Some(forced));
+        assert!((res.prob[forced] - 1.0).abs() < 1e-9);
     }
 
     #[test]
