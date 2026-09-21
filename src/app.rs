@@ -771,7 +771,7 @@ impl App {
                     painter.rect_stroke(
                         rect,
                         egui::Rounding::same(2.0),
-                        egui::Stroke::new(2.5, egui::Color32::from_rgb(245, 210, 60)),
+                        egui::Stroke::new(2.5_f32, egui::Color32::from_rgb(245, 210, 60)),
                     );
                 }
                 if let Some((label, color)) = text {

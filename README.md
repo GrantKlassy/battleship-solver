@@ -20,6 +20,12 @@ egui is much faster in release mode — always run it that way:
 cargo run --release
 ```
 
+The project's [Cargo configuration](.cargo/config.toml) automatically sets
+`LIBGL_ALWAYS_SOFTWARE=true` and `GALLIUM_DRIVER=llvmpipe`, so no extra launch
+arguments are needed. This uses Mesa's CPU renderer to avoid WSL's `libEGL` and
+Zink startup warnings. Existing environment variables can override these
+defaults.
+
 ## How it works
 
 The engine builds the exact posterior over ship locations by configuration

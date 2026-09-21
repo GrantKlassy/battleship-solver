@@ -1,0 +1,4 @@
+[env]
+# Use Mesa software rendering by default to avoid WSL graphics-driver warnings.
+LIBGL_ALWAYS_SOFTWARE = "true"
+GALLIUM_DRIVER = "llvmpipe"
