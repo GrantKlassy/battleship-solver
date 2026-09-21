@@ -1,5 +1,7 @@
 # battleship-solver
 
+![Battleship solver gameplay](gameplay.gif)
+
 A probability-based Battleship solver with a live GUI heatmap and a parallel
 hybrid engine.
 
